@@ -1,3 +1,11 @@
+"""
+How to use
+
+RMB to add point
+LMB to move point (click on empty space to deselect a point)
+Left arrow to reduce the number of subdivisions
+Right arrow to increase the number of subdivisions
+"""
 import pygame
 import sys
 
@@ -51,7 +59,6 @@ def draw_dotted_polygon(points, dotted=True):
             pygame.draw.line(screen, (255, 255, 255), second_point.position, point.position)
         else:
             pygame.draw.line(screen, (100, 100, 100), second_point.position, point.position)
-        if dotted:
             point.draw()
 def subdivide(points):
 
