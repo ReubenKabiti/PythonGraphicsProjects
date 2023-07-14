@@ -186,14 +186,9 @@ def main():
         elif square3.rotation < -math.pi/2.0:
             square3.rotation = -math.pi/2.0
 
-        if not debug_enabled:
-            square1.draw()
-            square2.draw()
-            square3.draw()
-        else:
-            square1.draw(debug=True)
-            square2.draw(debug=True)
-            square3.draw(debug=True)
+        square1.draw(debug=debug_enabled)
+        square2.draw(debug=debug_enabled)
+        square3.draw(debug=debug_enabled)
 
         pygame.display.update()
         clock.tick()
