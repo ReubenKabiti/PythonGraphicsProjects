@@ -3,9 +3,8 @@
 """
 How to use
 
-A and D to rotate the base
-W and S to rotate the lower arm
-E and D to rotate the upper arm
+left click on the blue circles, then move your mouse around to rotate the part that is selected
+right click to deselect
 
 Pass the --debug-enabled argument when running the program to enable debugging - but why would you? :|
 """
@@ -47,6 +46,10 @@ class MathUtil:
         v_out = tr@v_mat
         return pygame.math.Vector2(v_out[0], v_out[1])
 
+    @classmethod
+    def sign(self, x):
+        return -1 if x < 0 else 1
+
 class Square:
 
     def __init__(self,
@@ -60,9 +63,12 @@ class Square:
         self.position = position
         self.scale = pygame.math.Vector2(1, 1)
         self.rotation = rotation
+        self.temp_rotation = self.rotation
         self.origin = origin
         self.color = color
         self.parent = parent
+        self.gizmo_radius = 50
+        self.mouse_last = pygame.math.Vector2()
 
         # the square itself
         self.points = [
@@ -112,7 +118,69 @@ class Square:
         if debug:
             for point in points:
                 pygame.draw.circle(surface, (255, 255, 0), point, 5)
-            pygame.draw.polygon(surface, pygame.Vector3(255, 0, 0).lerp(self.color, 0.5), points, 1)
+            pygame.draw.polygon(surface, pygame.math.Vector3(255, 0, 0).lerp(self.color, 0.5), points, 1)
+
+        origin = MathUtil.apply_transform(self.get_global_transform(), self.origin)
+        mouse_position = pygame.math.Vector2(*pygame.mouse.get_pos())
+
+        if selected_square is not self:
+            pygame.draw.circle(surface, pygame.math.Vector3(0, 0, 100), origin, self.gizmo_radius, 2)
+        else:
+            pygame.draw.circle(surface, pygame.math.Vector3(255, 255, 0), origin, self.gizmo_radius, 2)
+            to_mouse_last = (self.mouse_last - origin).normalize() * self.gizmo_radius
+            to_mouse_cur = (mouse_position - origin).normalize() * self.gizmo_radius
+            pygame.draw.line(surface, (255, 0, 0), origin, origin+to_mouse_cur, 5)
+            wage_points = []
+            n_wage_points = 10
+            for i in range(n_wage_points + 1):
+                t = i/n_wage_points
+                vec = to_mouse_last.slerp(to_mouse_cur, t) + origin
+                wage_points.append(vec)
+            wage_points.append(origin)
+            pygame.draw.polygon(surface, (255, 255, 255), wage_points)
+
+    def update(self, delta):
+
+        global selected_square
+        if pygame.mouse.get_pressed()[0]:
+            if self.mouse_inside_gizmo():
+                selected_square = self
+                self.temp_rotation = self.rotation
+                self.mouse_last = pygame.math.Vector2(*pygame.mouse.get_pos())
+        elif pygame.mouse.get_pressed()[2]:
+            selected_square = None
+
+        if selected_square is self: 
+            origin = MathUtil.apply_transform(self.get_global_transform(), self.origin)
+            mouse_position = pygame.math.Vector2(*pygame.mouse.get_pos())
+            to_mouse_position = (mouse_position - origin).normalize()
+            to_mouse_last = (self.mouse_last - origin).normalize()
+
+            sign = -MathUtil.sign(
+                    np.linalg.det(np.array([
+                        [1, 1, 1],
+                        [mouse_position.x, origin.x, self.mouse_last.x],
+                        [mouse_position.y, origin.y, self.mouse_last.y],
+                        ]))
+                    )
+            cdotp = to_mouse_position.dot(to_mouse_last)
+            angle = 0
+            try:
+                angle = sign * math.acos(
+                        cdotp
+                        )
+            except:
+                pass
+            self.rotation = self.temp_rotation + angle
+
+    def mouse_inside_gizmo(self):
+        origin = MathUtil.apply_transform(self.get_global_transform(), self.origin)
+        mouse_position = pygame.math.Vector2(*pygame.mouse.get_pos())
+
+        to_mouse = mouse_position - origin
+        return to_mouse.dot(to_mouse) <= self.gizmo_radius**2
+
+selected_square = None
 
 def main():
     pygame.init()
@@ -144,6 +212,15 @@ def main():
             # rotation=math.pi/4.0,
             parent=square2
             )
+    square4 = Square(
+            scale=pygame.math.Vector2(30, 10),
+            position=pygame.math.Vector2(-7.5, -20),
+            origin=pygame.math.Vector2(15, 10),
+            color=pygame.math.Vector3(0, 0, 255),
+            # rotation=math.pi/4.0,
+            parent=square3
+            )
+
 
     clock = pygame.time.Clock()
     delta = 0
@@ -159,36 +236,16 @@ def main():
             if event.type == pygame.QUIT:
                 pygame.quit()
                 sys.exit()
-        key = pygame.key.get_pressed()
-        if key[pygame.K_a]:
-            square1.rotation -= math.pi/2.0 * delta
-        if key[pygame.K_q]:
-            square1.rotation += math.pi/2.0 * delta
-        if key[pygame.K_s]:
-            square2.rotation -= math.pi/2.0 * delta
-        if key[pygame.K_w]:
-            square2.rotation += math.pi/2.0 * delta
-        if key[pygame.K_d]:
-            square3.rotation -= math.pi/2.0 * delta
-        if key[pygame.K_e]:
-            square3.rotation += math.pi/2.0 * delta
-        # square1.rotation += math.pi/2.0 * delta
-        if square1.rotation > math.pi/2.0:
-            square1.rotation = math.pi/2.0
-        elif square1.rotation < -math.pi/2.0:
-            square1.rotation = -math.pi/2.0
-        if square2.rotation > math.pi/2.0:
-            square2.rotation = math.pi/2.0
-        elif square2.rotation < -math.pi/2.0:
-            square2.rotation = -math.pi/2.0
-        if square3.rotation > math.pi/2.0:
-            square3.rotation = math.pi/2.0
-        elif square3.rotation < -math.pi/2.0:
-            square3.rotation = -math.pi/2.0
+
+        square1.update(delta)
+        square2.update(delta)
+        square3.update(delta)
+        square4.update(delta)
 
         square1.draw(debug=debug_enabled)
         square2.draw(debug=debug_enabled)
         square3.draw(debug=debug_enabled)
+        square4.draw(debug=debug_enabled)
 
         pygame.display.update()
         clock.tick()
