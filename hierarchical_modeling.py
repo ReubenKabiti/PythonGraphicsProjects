@@ -1,4 +1,4 @@
-# hierarchical modeling with a roboto arm
+# hierarchical modeling with a robot arm
 
 """
 How to use
